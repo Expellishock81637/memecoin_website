@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>幣種價格趨勢圖</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #fafafa;
+    }
+    #container {
+      max-width: 1000px;
+      margin: auto;
+    }
+    canvas {
+      width: 100% !important;
+      height: 500px !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <h2>幣種價格趨勢圖</h2>
+
+    <label for="coin-select">選擇幣種：</label>
+    <select id="coin-select">
+      <option value="PEPE">PEPE</option>
+      <option value="DOGE">DOGE</option>
+      <option value="TRUMP">TRUMP</option>
+    </select>
+
+    <canvas id="priceChart"></canvas>
+  </div>
+
+  <script>
+    let chart;
+
+    async function loadData(coin) {
+      try {
+        const res = await fetch(`/api/price/${coin}`);
+        const data = await res.json();
+
+        if (!Array.isArray(data) || data.length === 0) {
+          alert(`找不到 ${coin} 的資料`);
+          return;
+        }
+
+        // ✅ 移除 UTC，只保留日期
+        const labels = data.map(item => item.date.split(' ')[0]);
+        const prices = data.map(item => item.price);
+
+        const ctx = document.getElementById('priceChart').getContext('2d');
+
+        if (chart) chart.destroy();
+
+        chart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [{
+              label: `${coin} 價格走勢`,
+              data: prices,
+              borderColor: '#007bff',
+              backgroundColor: 'rgba(0,123,255,0.2)',
+              fill: true,
+              pointRadius: 0,
+              borderWidth: 2,
+              tension: 0.3
+            }]
+          },
+          options: {
+            responsive: true,
+            interaction: {
+              mode: 'index',
+              intersect: false
+            },
+            plugins: {
+              tooltip: {
+                callbacks: {
+                  label: (context) => {
+                    // ✅ Tooltip：動態去除多餘的 0
+                    return `價格: ${Number(context.raw.toPrecision(8))}`;
+                  }
+                }
+              }
+            },
+            scales: {
+              x: {
+                title: { display: true, text: '日期' },
+                ticks: {
+                  maxRotation: 45,
+                  minRotation: 45,
+                  autoSkip: true,
+                  maxTicksLimit: 12
+                }
+              },
+              y: {
+                title: { display: true, text: '價格' },
+                ticks: {
+                  // ✅ Y 軸：動態格式化數字，去掉多餘 0
+                  callback: function(value) {
+                    return Number(value.toPrecision(6));
+                  }
+                }
+              }
+            }
+          }
+        });
+      } catch (err) {
+        console.error("讀取失敗", err);
+      }
+    }
+
+    const select = document.getElementById('coin-select');
+    loadData(select.value);
+
+    select.addEventListener('change', () => {
+      loadData(select.value);
+    });
+  </script>
+</body>
+</html>
